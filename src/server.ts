@@ -1,27 +1,39 @@
 import { FastMCP } from "fastmcp";
 import { z } from "zod";
 
-import { add } from "./add.js";
+import { currentTime } from "./time.js";
+
+// ポート番号を環境変数または引数から取得
+const PORT = process.env.PORT
+  ? parseInt(process.env.PORT, 10)
+  : process.argv[2]
+    ? parseInt(process.argv[2], 10)
+    : 3000;
+
+// ホスト設定 - 情報表示用（コンテナ内では0.0.0.0にバインド）
+const HOST = process.env.HOST || "0.0.0.0";
 
 const server = new FastMCP({
-  name: "Addition",
-  version: "1.0.0",
+  name: "time",
+  version: "0.0.1",
 });
 
 server.addTool({
   annotations: {
     openWorldHint: false, // This tool doesn't interact with external systems
     readOnlyHint: true, // This tool doesn't modify anything
-    title: "Addition",
+    title: "current-time",
   },
-  description: "Add two numbers",
+  description: "Get the current time",
   execute: async (args) => {
-    return String(add(args.a, args.b));
+    return currentTime(args.timezone);
   },
-  name: "add",
+  name: "current-time",
   parameters: z.object({
-    a: z.number().describe("The first number"),
-    b: z.number().describe("The second number"),
+    timezone: z
+      .string()
+      .describe("The timezone to get the current time in. e.g. 'Asia/Tokyo', 'America/New_York'")
+      .optional(),
   }),
 });
 
@@ -36,21 +48,16 @@ server.addResource({
   uri: "file:///logs/app.log",
 });
 
-server.addPrompt({
-  arguments: [
-    {
-      description: "Git diff or description of changes",
-      name: "changes",
-      required: true,
-    },
-  ],
-  description: "Generate a Git commit message",
-  load: async (args) => {
-    return `Generate a concise but descriptive commit message for these changes:\n\n${args.changes}`;
+// FastMCPがホストをオプションで設定できない場合でも、
+// 内部的にはコンテナ内のすべてのインターフェースにバインドされる
+server.start({
+  httpStream: {
+    endpoint: "/",
+    port: PORT,
   },
-  name: "git-commit",
+  transportType: "httpStream",
 });
 
-server.start({
-  transportType: "stdio",
-});
+console.log(`Server started on port ${PORT}`);
+console.log(`Container access URL: http://${HOST}:${PORT}/`);
+console.log(`Local access URL: http://localhost:${PORT}/`);

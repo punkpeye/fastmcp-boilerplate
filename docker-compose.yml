@@ -1,0 +1,25 @@
+version: "3"
+
+services:
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PORT=3000
+    # ポートマッピングの設定（ホスト側:コンテナ側）
+    ports:
+      - "3000:3000"
+    # コマンド引数でポートを上書きする場合はコメントアウトを解除
+    # command: ["3001"]
+
+  # 複数のポートで起動する例
+  mcp-server-alt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PORT=3001
+    ports:
+      - "3001:3001"
+    # command: ["3001"]

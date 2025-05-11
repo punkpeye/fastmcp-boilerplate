@@ -1,0 +1,95 @@
+name: MCP Server Integration Tests
+
+on: [push]
+
+jobs:
+  integration-test:
+    name: MCP Client-Server Integration Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Start server in Docker container
+        run: |
+          docker build -t mcp-server .
+          docker run -d -p 3000:3000 --name mcp-test-server mcp-server
+          # Wait for server to start
+          sleep 5
+          # Show logs for debugging
+          docker logs mcp-test-server
+
+      - name: Run basic connection test (quick fail)
+        run: |
+          # Simple test to fail fast if connection isn't working
+          timeout 10 bash -c 'until curl -s http://localhost:3000/ > /dev/null; do sleep 1; done' || (echo "Failed to connect to server" && exit 1)
+          echo "Server is responding to HTTP requests"
+
+      - name: Run testClient.ts in non-interactive mode
+        run: |
+          # Create a wrapper that runs testClient.ts non-interactively
+          cat > run_test.js << 'EOL'
+          const { spawn } = require('child_process');
+          const { promisify } = require('util');
+          const sleep = promisify(setTimeout);
+
+          async function runTest() {
+            // Run the test client with port 3000
+            const testProcess = spawn('npx', ['tsx', 'src/testClient.ts', '3000'], {
+              stdio: 'inherit' // Show output in GitHub Actions logs
+            });
+            
+            // Set a timeout (15 seconds)
+            const timeout = setTimeout(() => {
+              console.error('Test timed out after 15 seconds');
+              testProcess.kill();
+              process.exit(1);
+            }, 15000);
+            
+            // Handle completion
+            testProcess.on('close', (code) => {
+              clearTimeout(timeout);
+              if (code === 0) {
+                console.log('✅ Test completed successfully');
+                process.exit(0);
+              } else {
+                console.error(`❌ Test failed with exit code ${code}`);
+                process.exit(1);
+              }
+            });
+          }
+
+          runTest().catch(err => {
+            console.error('Test runner error:', err);
+            process.exit(1);
+          });
+          EOL
+
+          # Run the non-interactive test wrapper
+          node run_test.js
+
+      - name: Clean up
+        if: always()
+        run: docker stop mcp-test-server || true
+
+      - name: Archive test results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-logs
+          path: |
+            *.log
+            test-results/**
