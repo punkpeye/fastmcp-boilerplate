@@ -41,10 +41,9 @@ jobs:
       - name: Run testClient.ts in non-interactive mode
         run: |
           # Create a wrapper that runs testClient.ts non-interactively
-          cat > run_test.js << 'EOL'
-          const { spawn } = require('child_process');
-          const { promisify } = require('util');
-          const sleep = promisify(setTimeout);
+          cat > run_test.mjs << 'EOL'
+          import { spawn } from 'node:child_process';
+          import { setTimeout } from 'node:timers/promises';
 
           async function runTest() {
             // Run the test client with port 3000
@@ -53,33 +52,37 @@ jobs:
             });
             
             // Set a timeout (15 seconds)
-            const timeout = setTimeout(() => {
+            const timeoutId = setTimeout(15000, 'timeout').then(() => {
               console.error('Test timed out after 15 seconds');
               testProcess.kill();
               process.exit(1);
-            }, 15000);
+            });
             
             // Handle completion
-            testProcess.on('close', (code) => {
-              clearTimeout(timeout);
-              if (code === 0) {
-                console.log('✅ Test completed successfully');
-                process.exit(0);
-              } else {
-                console.error(`❌ Test failed with exit code ${code}`);
-                process.exit(1);
-              }
+            return new Promise((resolve, reject) => {
+              testProcess.on('close', (code) => {
+                timeoutId.clear();
+                if (code === 0) {
+                  console.log('✅ Test completed successfully');
+                  resolve();
+                } else {
+                  console.error(`❌ Test failed with exit code ${code}`);
+                  reject(new Error(`Test exited with code ${code}`));
+                }
+              });
             });
           }
 
-          runTest().catch(err => {
-            console.error('Test runner error:', err);
-            process.exit(1);
-          });
+          runTest()
+            .then(() => process.exit(0))
+            .catch(err => {
+              console.error('Test runner error:', err);
+              process.exit(1);
+            });
           EOL
 
           # Run the non-interactive test wrapper
-          node run_test.js
+          node run_test.mjs
 
       - name: Clean up
         if: always()
