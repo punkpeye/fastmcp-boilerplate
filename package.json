@@ -1,7 +1,7 @@
 {
-  "name": "fastmcp-boilerplate",
-  "version": "1.0.0",
-  "main": "dist/index.js",
+  "name": "http-time-mcp-server",
+  "version": "0.0.1",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
     "start": "tsx src/server.ts",
@@ -11,15 +11,15 @@
     "format": "prettier --write . && eslint --fix ."
   },
   "keywords": [
-    "fastmcp",
     "mcp",
-    "boilerplate"
+    "mcp/time",
+    "http-streamable"
   ],
   "repository": {
-    "url": "https://github.com/punkpeye/fastmcp-boilerplate"
+    "url": "https://github.com/passive-radio/http-time-mcp-server"
   },
-  "author": "Frank Fiegel <frank@glama.ai>",
-  "homepage": "https://glama.ai/mcp",
+  "author": "passive-radio (srccreator@gmail.com)",
+  "homepage": "https://github.com/passive-radio/http-time-mcp-server",
   "type": "module",
   "license": "MIT",
   "description": "A boilerplate for FastMCP",
