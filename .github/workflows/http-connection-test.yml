@@ -43,25 +43,28 @@ jobs:
           # Create a wrapper that runs testClient.ts non-interactively
           cat > run_test.mjs << 'EOL'
           import { spawn } from 'node:child_process';
-          import { setTimeout } from 'node:timers/promises';
 
+          // Simple wrapper to run testClient.ts with a timeout
           async function runTest() {
-            // Run the test client with port 3000
-            const testProcess = spawn('npx', ['tsx', 'src/testClient.ts', '3000'], {
-              stdio: 'inherit' // Show output in GitHub Actions logs
-            });
-            
-            // Set a timeout (15 seconds)
-            const timeoutId = setTimeout(15000, 'timeout').then(() => {
-              console.error('Test timed out after 15 seconds');
-              testProcess.kill();
-              process.exit(1);
-            });
-            
-            // Handle completion
             return new Promise((resolve, reject) => {
+              // Run the test client with port 3000
+              console.log("Starting test client with port 3000...");
+              const testProcess = spawn('npx', ['tsx', 'src/testClient.ts', '3000'], {
+                stdio: 'inherit' // Show output in GitHub Actions logs
+              });
+              
+              // Set timeout using standard setTimeout (not the promise version)
+              const timeoutID = setTimeout(() => {
+                console.error('Test timed out after 15 seconds');
+                testProcess.kill();
+                reject(new Error('Test timeout'));
+              }, 15000);
+              
+              // Handle process completion
               testProcess.on('close', (code) => {
-                timeoutId.clear();
+                // Clear the timeout when the process ends
+                clearTimeout(timeoutID);
+                
                 if (code === 0) {
                   console.log('✅ Test completed successfully');
                   resolve();
@@ -73,6 +76,7 @@ jobs:
             });
           }
 
+          // Run the test and handle results
           runTest()
             .then(() => process.exit(0))
             .catch(err => {
